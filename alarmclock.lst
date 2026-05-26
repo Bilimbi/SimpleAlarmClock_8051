@@ -1,0 +1,239 @@
+     1                  ;         __________
+     2                  ;        /_________/`-_
+     3                  ;     _-'   ____   `-_ /|
+     4                  ;    { >=+-<8051>-+=< } |
+     5                  ;    |  ____________  | |
+     6                  ;    | |    \/||    | | |
+     7                  ;    | |    /\||    | | |
+     8                  ;    | |            | | |
+     9                  ;    | ||\/      |||| | |
+    10                  ;    | ||/\ ,*.  |||| | |
+    11                  ;    | |  ,'   `.   | | |
+    12                  ;    | |    \ /| `. | | |
+    13                  ;    | |_____V_|____| | |
+    14                  ;    | |    : /     | | |
+    15                  ;    | |    :/:     | | |
+    16                  ;    | |    / :     | | |
+    17                  ;    | |   /: @     | | |
+    18                  ;    | |  / :       | | |
+    19                  ;    | |( ) :       | | |   
+    20                  ;    | |    :       | | |
+    21                  ;    | |    :       | | |
+    22                  ;    | |    @       | | |
+    23                  ;    | |____________| | |  
+    24                  ;    |______/VV\_______|/
+    25                  
+    26                  ;------------ Setup Timers ------------
+    27                  ;TIMER 0
+    28        0000      T0_G	EQU	0	;GATE
+    29        0000      T0_C	EQU	0	;COUNTER/-TIMER
+    30        0001      T0_M	EQU	1	;MODE (0..3)
+    31        0001      TIM0	EQU	T0_M+T0_C*4+T0_G*8
+    32                  ;TIMER 1
+    33        0000      T1_G	EQU	0	;GATE
+    34        0000      T1_C	EQU	0	;COUNTER/-TIMER
+    35        0000      T1_M	EQU	0	;MODE (0..3)
+    36        0000      TIM1	EQU	T1_M+T1_C*4+T1_G*8
+    37                  
+    38        0001      TMOD_SET	EQU	TIM0+TIM1*16
+    39                  
+    40                  ;50[ms] = 50 000[uS]*(11.0592[MHz]/12) =
+    41                  ;	= 46 080 cycles = 180 * 256
+    42        004C      TH0_SET		EQU	256-180
+    43        0000      TL0_SET		EQU	0
+    44                  ;---------------------------------------
+    45                  
+    46        0097      LED	EQU	P1.7 ; Define LED pin
+    47                  
+    48                  ; Define alarm time storage in the RAM
+    49        0033      ALM_H EQU 33H ; Hour of the alarm
+    50        0034      ALM_M EQU 34H ; Minute of the alarm
+    51        0035      ALM_C EQU 35H ; Counter for alarm duration in seconds
+    52                  
+    53  0000: 02 01 00      LJMP START
+    54  0100:               ORG 100H ; Jump to the start of the program
+    55  0100:           START:
+    56  0100: 12 81 08      LCALL LCD_INIT
+    57                  
+    58  0103: 75 89 01      MOV TMOD, #TMOD_SET ; Timer 0 is counting
+    59  0106: 75 8C 4C      MOV TH0, #TH0_SET ; Set timer 0 to 50ms
+    60  0109: 75 8A 00      MOV TL0, #TL0_SET
+    61  010C: D2 8C         SETB TR0 ; Start timer 0
+    62                  
+    63                      ; Setup current time
+    64  010E: 12 01 27      LCALL SET_CURRENT_TIME
+    65                  
+    66                      ; Setup alarm time
+    67  0111: 12 01 5B      LCALL SET_ALARM_TIME
+    68                  
+    69  0114: 75 35 00      MOV ALM_C, #0 ; Reset alarm counter
+    70  0117: D2 97         SETB LED ; Turn off the LED
+    71                  
+    72  0119:           MAIN_LOOP:
+    73                      ; Display the current time on the LCD
+    74  0119: 12 01 81      LCALL DISPLAY_TIME
+    75                  
+    76                      ; Check if the alarm time has been reached
+    77  011C: 12 01 AC      LCALL CHECK_ALARM
+    78                  
+    79                      ; One second delay
+    80  011F: 12 01 C4      LCALL DELAY_1S
+    81                      
+    82                      ; One second increase of the current time
+    83  0122: 12 01 DA      LCALL INC_TIME
+    84                  
+    85  0125: 80 F2         SJMP MAIN_LOOP
+    86                  
+    87  0127:           SET_CURRENT_TIME:
+    88  0127: 12 81 0C      LCALL LCD_CLR
+    89                      ; HOUR
+    90  012A: 12 81 1C      LCALL WAIT_KEY ; Get XO
+    91  012D: 75 F0 0A      MOV B, #10
+    92  0130: A4            MUL AB
+    93  0131: F9            MOV R1,A
+    94                      
+    95  0132: 12 81 1C      LCALL WAIT_KEY ; Get OX
+    96  0135: 29            ADD A,R1
+    97                  
+    98  0136: FF            MOV R7,A
+    99  0137: 12 01 9B      LCALL PRINT_DEC
+   100                      
+   101                      ; MIN
+   102  013A: 12 81 1C      LCALL WAIT_KEY ; Get XO
+   103  013D: 75 F0 0A      MOV B, #10
+   104  0140: A4            MUL AB
+   105  0141: F9            MOV R1,A
+   106                      
+   107  0142: 12 81 1C      LCALL WAIT_KEY ; Get OX
+   108  0145: 29            ADD A,R1
+   109                  
+   110  0146: FE            MOV R6,A
+   111  0147: 12 01 9B      LCALL PRINT_DEC
+   112                  
+   113                      ; SEX
+   114  014A: 12 81 1C      LCALL WAIT_KEY ; Get XO
+   115  014D: 75 F0 0A      MOV B, #10
+   116  0150: A4            MUL AB
+   117  0151: F9            MOV R1,A
+   118                      
+   119  0152: 12 81 1C      LCALL WAIT_KEY ; Get OX
+   120  0155: 29            ADD A,R1
+   121                  
+   122  0156: FD            MOV R5,A
+   123  0157: 12 01 9B      LCALL PRINT_DEC
+   124  015A: 22            RET ; Return from subroutine
+   125                  
+   126  015B:           SET_ALARM_TIME:
+   127  015B: 12 81 0C      LCALL LCD_CLR
+   128                  
+   129                      ; HOUR alarm
+   130  015E: 12 81 1C      LCALL WAIT_KEY
+   131  0161: 75 F0 0A      MOV B, #10
+   132  0164: A4            MUL AB
+   133  0165: F9            MOV R1,A
+   134  0166: 12 81 1C      LCALL WAIT_KEY
+   135  0169: 29            ADD A,R1
+   136  016A: F5 33         MOV ALM_H, A      ; Write to RAM
+   137  016C: 12 01 9B      LCALL PRINT_DEC
+   138                      
+   139                      ; MIN alarm
+   140  016F: 12 81 1C      LCALL WAIT_KEY
+   141  0172: 75 F0 0A      MOV B, #10
+   142  0175: A4            MUL AB
+   143  0176: F9            MOV R1,A
+   144  0177: 12 81 1C      LCALL WAIT_KEY
+   145  017A: 29            ADD A,R1
+   146  017B: F5 34         MOV ALM_M, A      ; Write to RAM
+   147  017D: 12 01 9B      LCALL PRINT_DEC
+   148  0180: 22            RET
+   149                  
+   150  0181:           DISPLAY_TIME:
+   151  0181: 12 81 0C      LCALL LCD_CLR
+   152  0184: EF            MOV A, R7
+   153  0185: 12 01 9B      LCALL PRINT_DEC ; Print hours
+   154                      
+   155  0188: 74 3A         MOV A, #':'
+   156  018A: 12 81 02      LCALL WRITE_DATA
+   157                      
+   158  018D: EE            MOV A, R6
+   159  018E: 12 01 9B      LCALL PRINT_DEC ; Print minutes
+   160                      
+   161  0191: 74 3A         MOV A, #':'
+   162  0193: 12 81 02      LCALL WRITE_DATA
+   163                      
+   164  0196: ED            MOV A, R5
+   165  0197: 12 01 9B      LCALL PRINT_DEC ; Print seconds
+   166  019A: 22            RET
+   167                  
+   168  019B:           PRINT_DEC:
+   169  019B: 75 F0 0A      MOV B, #10
+   170  019E: 84            DIV AB
+   171  019F: 24 30         ADD A, #'0'
+   172  01A1: 12 81 02      LCALL WRITE_DATA
+   173  01A4: E5 F0         MOV A, B
+   174  01A6: 24 30         ADD A, #'0'
+   175  01A8: 12 81 02      LCALL WRITE_DATA
+   176  01AB: 22            RET
+   177                  
+   178  01AC:           CHECK_ALARM:
+   179                      ; Check seconds
+   180  01AC: ED            MOV A, R5
+   181  01AD: 70 0B         JNZ ALARM_STATE_UPDATE 
+   182                  
+   183                      ; Check minutes
+   184  01AF: EE            MOV A, R6
+   185  01B0: B5 34 07      CJNE A, ALM_M, ALARM_STATE_UPDATE
+   186                  
+   187                      ; Check hours
+   188  01B3: EF            MOV A, R7
+   189  01B4: B5 33 03      CJNE A, ALM_H, ALARM_STATE_UPDATE
+   190                  
+   191                      ; Set alarm counter to 2 seconds when the alarm time is reached
+   192  01B7: 75 35 02      MOV ALM_C, #2 
+   193                  
+   194  01BA:           ALARM_STATE_UPDATE:
+   195  01BA: E5 35         MOV A, ALM_C
+   196  01BC: 60 03         JZ TURN_OFF_LED
+   197  01BE: C2 97         CLR LED ; Turn on the LED
+   198  01C0: 22            RET
+   199                  
+   200  01C1:           TURN_OFF_LED:
+   201  01C1: D2 97         SETB LED ; Turn off the LED
+   202  01C3: 22            RET
+   203                  
+   204  01C4:           DELAY_1S:
+   205  01C4: 7A 14         MOV R2, #20 ; 20 * 50ms = 1 second
+   206                  
+   207  01C6:           DELAY_LOOP:
+   208  01C6: 30 8D FD      JNB TF0, $ ; Wait for timer 0 overflow flag
+   209  01C9: C2 8D         CLR TF0 ; Clear the flag
+   210  01CB: 75 8C 4C      MOV TH0, #TH0_SET
+   211  01CE: 75 8A 00      MOV TL0, #TL0_SET
+   212  01D1: DA F3         DJNZ R2, DELAY_LOOP
+   213                  
+   214                      ; Decrease the alarm counter by 1 second
+   215  01D3: E5 35         MOV A, ALM_C
+   216  01D5: 60 02         JZ SKIP_ALM_DEC
+   217  01D7: 15 35         DEC ALM_C
+   218                  
+   219  01D9:           SKIP_ALM_DEC:
+   220  01D9: 22            RET
+   221                  
+   222  01DA:           INC_TIME:
+   223  01DA: 0D            INC R5            ; Increase seconds
+   224  01DB: BD 3C 0E      CJNE R5, #60, INC_END
+   225  01DE: 7D 00         MOV R5, #0        ; Reset seconds
+   226                      
+   227  01E0: 0E            INC R6            ; Increase minutes
+   228  01E1: BE 3C 08      CJNE R6, #60, INC_END
+   229  01E4: 7E 00         MOV R6, #0        ; Reset minutes
+   230                      
+   231  01E6: 0F            INC R7            ; Increase hours
+   232  01E7: BF 18 02      CJNE R7, #24, INC_END
+   233  01EA: 7F 00         MOV R7, #0        ; Reset hours
+   234                  
+   235  01EC:           INC_END:
+   236  01EC: 22            RET
+   237                  
+   238  01ED:           STOP:
+   239  01ED: 80 FE         SJMP $

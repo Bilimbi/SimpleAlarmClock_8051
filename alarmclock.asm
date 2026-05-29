@@ -44,6 +44,7 @@ TL0_SET		EQU	0
 ;---------------------------------------
 
 LED	EQU	P1.7 ; Define LED pin
+BUZZ EQU P1.5 ; Define Buzzer pin
 
 ; Define alarm time storage in the RAM
 ALM_H EQU 33H ; Hour of the alarm
@@ -68,6 +69,7 @@ START:
 
     MOV ALM_C, #0 ; Reset alarm counter
     SETB LED ; Turn off the LED
+    SETB BUZZ ; Turn off the Buzzer
 
 MAIN_LOOP:
     ; Display the current time on the LCD
@@ -97,6 +99,9 @@ SET_CURRENT_TIME:
 
     MOV R7,A
     LCALL PRINT_DEC
+
+    MOV A, #':'
+    LCALL WRITE_DATA
     
     ; MIN
     LCALL WAIT_KEY ; Get XO
@@ -110,6 +115,9 @@ SET_CURRENT_TIME:
     MOV R6,A
     LCALL PRINT_DEC
 
+    MOV A, #':'
+    LCALL WRITE_DATA
+
     ; SEX
     LCALL WAIT_KEY ; Get XO
     MOV B, #10
@@ -121,6 +129,10 @@ SET_CURRENT_TIME:
 
     MOV R5,A
     LCALL PRINT_DEC
+    
+    MOV A, #2
+    LCALL DELAY_100MS
+
     RET ; Return from subroutine
 
 SET_ALARM_TIME:
@@ -135,6 +147,9 @@ SET_ALARM_TIME:
     ADD A,R1
     MOV ALM_H, A      ; Write to RAM
     LCALL PRINT_DEC
+
+    MOV A, #':'
+    LCALL WRITE_DATA
     
     ; MIN alarm
     LCALL WAIT_KEY
@@ -145,6 +160,10 @@ SET_ALARM_TIME:
     ADD A,R1
     MOV ALM_M, A      ; Write to RAM
     LCALL PRINT_DEC
+
+    MOV A, #2
+    LCALL DELAY_100MS
+
     RET
 
 DISPLAY_TIME:
@@ -163,6 +182,7 @@ DISPLAY_TIME:
     
     MOV A, R5
     LCALL PRINT_DEC ; Print seconds
+
     RET
 
 PRINT_DEC:
@@ -173,6 +193,7 @@ PRINT_DEC:
     MOV A, B
     ADD A, #'0'
     LCALL WRITE_DATA
+
     RET
 
 CHECK_ALARM:
@@ -188,17 +209,21 @@ CHECK_ALARM:
     MOV A, R7
     CJNE A, ALM_H, ALARM_STATE_UPDATE
 
-    ; Set alarm counter to 2 seconds when the alarm time is reached
-    MOV ALM_C, #2 
+    ; Set alarm counter to 3 seconds when the alarm time is reached
+    MOV ALM_C, #3 
 
 ALARM_STATE_UPDATE:
     MOV A, ALM_C
-    JZ TURN_OFF_LED
+    JZ TURN_OFF_LB
     CLR LED ; Turn on the LED
+    CLR BUZZ ; Turn on the Buzzer
+
     RET
 
-TURN_OFF_LED:
+TURN_OFF_LB:
     SETB LED ; Turn off the LED
+    SETB BUZZ ; Turn off the Buzzer
+
     RET
 
 DELAY_1S:
